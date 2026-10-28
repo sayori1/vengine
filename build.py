@@ -38,7 +38,7 @@ def build(config):
     directory.mkdir(parents=True, exist_ok=True)
     manifest = directory / "build.ninja"
     binary = directory / "vengine"
-    common = "-std=c++23 -m64 -Wall -Wextra -DSOKOL_GLCORE -isystem vendor/sokol"
+    common = "-std=c++23 -m64 -Wall -Wextra -Wpedantic -DSOKOL_GLCORE -Isrc -isystem vendor/sokol -isystem vendor/glm"
     if config == "debug":
         cflags = f"{common} -O0 -g3 -DDEBUG -fsanitize=address,undefined -fno-omit-frame-pointer"
         ldflags = "-m64 -fsanitize=address,undefined"

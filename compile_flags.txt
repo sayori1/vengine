@@ -3,6 +3,10 @@
 -DSOKOL_GLCORE
 -isystem
 vendor/sokol
+-Isrc
+-isystem
+vendor/glm
+-Wpedantic
 -Wall
 -Wextra
 -pthread
