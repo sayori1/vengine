@@ -1,0 +1,8 @@
+-std=c++23
+-m64
+-DSOKOL_GLCORE
+-isystem
+vendor/sokol
+-Wall
+-Wextra
+-pthread
