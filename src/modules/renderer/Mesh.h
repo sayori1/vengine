@@ -2,6 +2,7 @@
 
 #include "modules/math/AABB.h"
 #include "modules/resource/Resource.h"
+#include "Material.h"
 
 #include "RID.h"
 #include "Vertex.h"
@@ -10,8 +11,6 @@
 #include <cstdint>
 #include <span>
 #include <vector>
-
-class Material;
 
 class Mesh : public Resource {
 public:
