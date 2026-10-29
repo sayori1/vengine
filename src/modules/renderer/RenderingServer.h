@@ -1,17 +1,12 @@
 #pragma once
 
 #include "RID.h"
-
-#include <glm/glm.hpp>
+#include "Vertex.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
-
-struct Vertex {
-    glm::vec3 position;
-};
 
 class RenderingServer {
 public:

@@ -1,6 +1,9 @@
 #include "Mesh.h"
 
-#include <algorithm>
+#include "RenderingServer.h"
+
+#include <glm/common.hpp>
+
 #include <limits>
 
 Mesh::Mesh(RID rid)
@@ -26,7 +29,7 @@ bool Mesh::addSurface(
     std::span<const Vertex> vertices,
     std::span<const uint32_t> indices
 ) {
-    if (vertices.empty()) {
+    if (vertices.empty() || indices.empty()) {
         return false;
     }
 
@@ -40,7 +43,11 @@ bool Mesh::addSurface(
         bounds.max = glm::max(bounds.max, vertex.position);
     }
 
-    if (!RenderingServer::get().meshAddSurface(rid_, vertices, indices)) {
+    surfaces_.reserve(surfaces_.size() + 1);
+
+    if (!RenderingServer::get().meshAddSurface(
+        rid_, vertices, indices
+    )) {
         return false;
     }
 

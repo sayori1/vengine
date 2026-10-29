@@ -2,7 +2,9 @@
 
 #include "modules/math/AABB.h"
 #include "modules/resource/Resource.h"
-#include "modules/renderer/RenderingServer.h"
+
+#include "RID.h"
+#include "Vertex.h"
 
 #include <cstddef>
 #include <cstdint>
