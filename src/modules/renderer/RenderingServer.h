@@ -2,14 +2,15 @@
 
 #include "RID.h"
 
+#include <glm/glm.hpp>
+
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
 
 struct Vertex {
-    float x;
-    float y;
-    float z;
+    glm::vec3 position;
 };
 
 class RenderingServer {
@@ -21,15 +22,22 @@ public:
     RenderingServer(const RenderingServer&) = delete;
     RenderingServer& operator=(const RenderingServer&) = delete;
 
-    RID createMesh(
+    RID meshCreate();
+
+    bool meshAddSurface(
+        RID mesh,
         std::span<const Vertex> vertices,
         std::span<const uint32_t> indices
     );
 
+    void meshClear(RID mesh);
+
+    size_t meshGetSurfaceCount(RID mesh) const;
+
+    void meshDrawSurface(RID mesh, size_t surfaceIndex) const;
+
     void free(RID rid);
     bool isValid(RID rid) const;
-
-    void drawMesh(RID rid) const;
 
 private:
     RenderingServer();

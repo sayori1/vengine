@@ -1,139 +1,54 @@
-#include "RenderingServer.h"
+#pragma once
 
-#include "RIDPool.h"
-#include "sokol_gfx.h"
+#include "RID.h"
 
-#include <cassert>
-#include <limits>
+#include <glm/glm.hpp>
+
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <span>
 
-namespace {
-
-std::unique_ptr<RenderingServer, RenderingServerDeleter> instance;
-
-struct GPUMesh {
-    sg_buffer vertexBuffer{};
-    sg_buffer indexBuffer{};
-    int indexCount = 0;
-
-    GPUMesh(
-        sg_buffer vertexBuffer,
-        sg_buffer indexBuffer,
-        int indexCount
-    )
-        : vertexBuffer(vertexBuffer),
-          indexBuffer(indexBuffer),
-          indexCount(indexCount) {}
-
-    ~GPUMesh() {
-        if (vertexBuffer.id != SG_INVALID_ID) {
-            sg_destroy_buffer(vertexBuffer);
-        }
-
-        if (indexBuffer.id != SG_INVALID_ID) {
-            sg_destroy_buffer(indexBuffer);
-        }
-    }
-
-    GPUMesh(const GPUMesh&) = delete;
-    GPUMesh& operator=(const GPUMesh&) = delete;
+struct Vertex {
+    glm::vec3 position;
 };
 
-}
+class RenderingServer {
+public:
+    static void initialize();
+    static void shutdown();
+    static RenderingServer& get();
 
-struct RenderingServer::Impl {
-    RIDPool<GPUMesh> meshes;
-};
+    RenderingServer(const RenderingServer&) = delete;
+    RenderingServer& operator=(const RenderingServer&) = delete;
 
-RenderingServer::RenderingServer()
-    : impl_(std::make_unique<Impl>()) {}
+    RID meshCreate();
 
-RenderingServer::~RenderingServer() = default;
-
-void RenderingServerDeleter::operator()(RenderingServer* server) const {
-    delete server;
-}
-
-void RenderingServer::initialize() {
-    assert(!instance);
-    assert(sg_isvalid());
-
-    instance.reset(new RenderingServer());
-}
-
-void RenderingServer::shutdown() {
-    instance.reset();
-}
-
-RenderingServer& RenderingServer::get() {
-    assert(instance);
-    return *instance;
-}
-
-RID RenderingServer::createMesh(
-    std::span<const Vertex> vertices,
-    std::span<const uint32_t> indices
-) {
-    if (vertices.empty() || indices.empty()) {
-        return {};
-    }
-
-    if (indices.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-        return {};
-    }
-
-    sg_buffer_desc vertexDesc{};
-    vertexDesc.data.ptr = vertices.data();
-    vertexDesc.data.size = vertices.size_bytes();
-    vertexDesc.label = "Mesh Vertex Buffer";
-
-    sg_buffer vertexBuffer = sg_make_buffer(&vertexDesc);
-
-    if (sg_query_buffer_state(vertexBuffer) != SG_RESOURCESTATE_VALID) {
-        sg_destroy_buffer(vertexBuffer);
-        return {};
-    }
-
-    sg_buffer_desc indexDesc{};
-    indexDesc.type = SG_BUFFERTYPE_INDEXBUFFER;
-    indexDesc.data.ptr = indices.data();
-    indexDesc.data.size = indices.size_bytes();
-    indexDesc.label = "Mesh Index Buffer";
-
-    sg_buffer indexBuffer = sg_make_buffer(&indexDesc);
-
-    if (sg_query_buffer_state(indexBuffer) != SG_RESOURCESTATE_VALID) {
-        sg_destroy_buffer(vertexBuffer);
-        sg_destroy_buffer(indexBuffer);
-        return {};
-    }
-
-    return impl_->meshes.create(
-        vertexBuffer,
-        indexBuffer,
-        static_cast<int>(indices.size())
+    bool meshAddSurface(
+        RID mesh,
+        std::span<const Vertex> vertices,
+        std::span<const uint32_t> indices
     );
-}
 
-void RenderingServer::free(RID rid) {
-    impl_->meshes.destroy(rid);
-}
+    void meshClear(RID mesh);
 
-bool RenderingServer::isValid(RID rid) const {
-    return impl_->meshes.isValid(rid);
-}
+    size_t meshGetSurfaceCount(RID mesh) const;
 
-void RenderingServer::drawMesh(RID rid) const {
-    const GPUMesh* mesh = impl_->meshes.get(rid);
+    void meshDrawSurface(RID mesh, size_t surfaceIndex) const;
 
-    if (!mesh) {
-        return;
-    }
+    void free(RID rid);
+    bool isValid(RID rid) const;
 
-    sg_bindings bindings{};
-    bindings.vertex_buffers[0] = mesh->vertexBuffer;
-    bindings.index_buffer = mesh->indexBuffer;
+private:
+    RenderingServer();
+    ~RenderingServer();
 
-    sg_apply_bindings(&bindings);
-    sg_draw(0, mesh->indexCount, 1);
-}
+    friend struct RenderingServerDeleter;
+
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+struct RenderingServerDeleter {
+    void operator()(RenderingServer* server) const;
+};
