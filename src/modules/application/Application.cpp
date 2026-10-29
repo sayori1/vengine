@@ -124,8 +124,8 @@ sapp_desc Application::createDescriptor() {
     desc.height = 720;
     desc.window_title = "vengine";
 
-    desc.gl_major_version = 3;
-    desc.gl_minor_version = 3;
+    desc.gl.major_version = 4;
+    desc.gl.minor_version = 3;
     desc.swap_interval = 1;
 
     desc.logger.func = slog_func;

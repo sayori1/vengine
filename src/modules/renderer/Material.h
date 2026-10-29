@@ -42,9 +42,10 @@ public:
 
     uint64_t getVersion() const;
 
-private:
+protected:
     explicit Material(Ref<Shader> shader);
 
+private:
     Ref<Shader> shader_;
 
     std::unordered_map<std::string, Parameter> parameters_;

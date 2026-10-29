@@ -72,6 +72,13 @@ public:
 
     void cameraSetActive(RID camera);
 
+    RID lightCreate(LightType type);
+    void lightFree(RID light);
+    void lightSetData(RID light, const LightData& data);
+
+    bool setRenderSettings(const RenderSettings& settings);
+    const RenderSettings& getRenderSettings() const;
+
     void renderScene();
 
     void free(RID mesh);

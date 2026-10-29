@@ -1,0 +1,96 @@
+#version 430 core
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+uniform mat4 u_view;
+uniform mat4 u_inverse_projection;
+uniform vec4 u_viewport;
+uniform vec4 u_grid;
+uniform vec4 u_counts;
+
+struct GPULight {
+    vec4 positionRadius;
+    vec4 directionOuter;
+    vec4 colorIntensity;
+    vec4 parameters;
+    uvec4 metadata;
+};
+
+layout(std430, binding = 0) readonly buffer LightBuffer {
+    GPULight lights[];
+};
+
+layout(std430, binding = 1) buffer ClusterBuffer {
+    uvec4 clusters[];
+};
+
+layout(std430, binding = 2) buffer IndexBuffer {
+    uint indices[];
+};
+
+vec3 unprojectAtDepth(vec2 ndc, float depth) {
+    vec4 start = u_inverse_projection * vec4(ndc, -1.0, 1.0);
+    vec4 end = u_inverse_projection * vec4(ndc, 1.0, 1.0);
+    vec3 origin = start.xyz * end.z - end.xyz * start.z;
+    vec3 direction = end.xyz * start.w - start.xyz * end.w;
+    float denominator = start.w * end.z - start.z * end.w;
+    return (origin + depth * direction) / denominator;
+}
+
+bool sphereIntersectsBounds(vec3 center, float radius, vec3 minimum, vec3 maximum) {
+    vec3 delta = center - clamp(center, minimum, maximum);
+    return dot(delta, delta) <= radius * radius;
+}
+
+void main() {
+    uvec3 grid = uvec3(u_grid.xyz);
+    uvec3 cell = gl_GlobalInvocationID;
+    uint cluster = (cell.z * grid.y + cell.y) * grid.x + cell.x;
+    uint capacity = uint(u_grid.w);
+    uint offset = cluster * capacity;
+    uint lightCount = uint(u_counts.x);
+    vec2 pixelMinimum = vec2(cell.xy) * u_viewport.xy / vec2(grid.xy);
+    vec2 pixelMaximum = vec2(cell.xy + uvec2(1)) * u_viewport.xy / vec2(grid.xy);
+    vec2 ndcMinimum = pixelMinimum / u_viewport.xy * 2.0 - 1.0;
+    vec2 ndcMaximum = pixelMaximum / u_viewport.xy * 2.0 - 1.0;
+    float ratio = u_viewport.w / u_viewport.z;
+    float nearDepth = u_viewport.z * pow(ratio, float(cell.z) / float(grid.z));
+    float farDepth = u_viewport.z * pow(ratio, float(cell.z + 1u) / float(grid.z));
+    vec3 minimum = vec3(3.402823466e+38);
+    vec3 maximum = vec3(-3.402823466e+38);
+    for (uint y = 0u; y < 2u; ++y) {
+        for (uint x = 0u; x < 2u; ++x) {
+            vec2 ndc = vec2(x == 0u ? ndcMinimum.x : ndcMaximum.x,
+                            y == 0u ? ndcMinimum.y : ndcMaximum.y);
+            vec3 nearPoint = unprojectAtDepth(ndc, nearDepth);
+            vec3 farPoint = unprojectAtDepth(ndc, farDepth);
+            minimum = min(minimum, min(nearPoint, farPoint));
+            maximum = max(maximum, max(nearPoint, farPoint));
+        }
+    }
+    vec3 padding = max(max(abs(minimum), abs(maximum)), vec3(1.0)) * 1.0e-5;
+    minimum -= padding;
+    maximum += padding;
+    uint count = 0u;
+    uint overflow = 0u;
+    for (uint i = 0u; i < lightCount; ++i) {
+        GPULight light = lights[i];
+        bool intersects = light.metadata.x == 0u;
+        if (!intersects) {
+            vec3 center = (u_view * vec4(light.positionRadius.xyz, 1.0)).xyz;
+            float radius = max(light.positionRadius.w, 0.0);
+            intersects = sphereIntersectsBounds(center, radius, minimum, maximum);
+        }
+        if (!intersects) {
+            continue;
+        }
+        if (count < capacity) {
+            indices[offset + count] = i;
+            ++count;
+        } else {
+            overflow = 1u;
+            break;
+        }
+    }
+    clusters[cluster] = uvec4(offset, count, overflow, 0u);
+}

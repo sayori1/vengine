@@ -14,8 +14,8 @@ class RenderContext;
 
 class GeometryPass : public RenderPass {
 public:
-    using Requires = TypeList<>;
-    using Produces = TypeList<SceneColor, Depth>;
+    using Requires = TypeList<Depth, ClusteredLights, Shadows>;
+    using Produces = TypeList<SceneColor>;
     using Optional = TypeList<>;
 
     GeometryPass();
@@ -32,6 +32,15 @@ public:
     );
 
 private:
+    bool drawSurface(
+        RenderContext& context,
+        FrameContext& frame,
+        RID mesh,
+        size_t surfaceIndex,
+        const std::shared_ptr<Material>& material,
+        const glm::mat4& model
+    );
+
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

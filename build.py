@@ -9,6 +9,19 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 BUILD = ROOT / "build"
+SHADERS = {
+    "kVertexSource": "geometry_pass/shaders/geometry.vert",
+    "kFragmentSource": "geometry_pass/shaders/geometry.frag",
+    "kPbrVertexSource": "geometry_pass/shaders/pbr.vert",
+    "kPbrFragmentSource": "geometry_pass/shaders/pbr.frag",
+    "kTonemapVertexSource": "geometry_pass/shaders/tonemap.vert",
+    "kTonemapFragmentSource": "geometry_pass/shaders/tonemap.frag",
+    "kDepthVertexSource": "depth_pass/shaders/depth.vert",
+    "kDepthFragmentSource": "depth_pass/shaders/depth.frag",
+    "kShadowVertexSource": "shadow_pass/shaders/shadow.vert",
+    "kShadowFragmentSource": "shadow_pass/shaders/shadow.frag",
+    "kLightCullingComputeSource": "light_culling_pass/shaders/light_culling.comp",
+}
 
 
 def ninja_escape(value):
@@ -25,10 +38,10 @@ def require_tool(name):
 def generate_shaders():
     generated = BUILD / "generated"
     generated.mkdir(parents=True, exist_ok=True)
-    shaders = ROOT / "src/modules/renderer/passes/geometry_pass/shaders"
+    shaders = ROOT / "src/modules/renderer/passes"
     shader_header = "#pragma once\n\nnamespace geometry_shaders {\n"
-    for name, extension in (("kVertexSource", "vert"), ("kFragmentSource", "frag")):
-        source = (shaders / f"geometry.{extension}").read_text()
+    for name, path in SHADERS.items():
+        source = (shaders / path).read_text()
         shader_header += f'inline constexpr char {name}[] = R"glsl({source})glsl";\n'
     shader_header += "}\n"
     shader_path = generated / "GeometryShaderSources.h"
@@ -69,11 +82,13 @@ def build(config):
         "libs = -lX11 -lXi -lXcursor -lGL -ldl -pthread -lm",
         "rule shaders",
         f"  command = {ninja_escape(shlex.quote(sys.executable))} build.py shaders",
-        "  description = EMBED geometry shaders",
+        "  description = EMBED renderer shaders",
         "  restat = 1",
-        "build build/generated/GeometryShaderSources.h: shaders src/modules/renderer/passes/geometry_pass/shaders/geometry.vert src/modules/renderer/passes/geometry_pass/shaders/geometry.frag | build.py",
+        "build build/generated/GeometryShaderSources.h: shaders " + " ".join(
+            ninja_escape(f"src/modules/renderer/passes/{path}") for path in SHADERS.values()
+        ) + " | build.py",
         "rule compile",
-        "  command = $cxx $cflags -pthread -MMD -MF $out.d -MT $out -c $in -o $out",
+        "  command = $cxx $cflags -pthread -MD -MF $out.d -MT $out -c $in -o $out",
         "  depfile = $out.d",
         "  deps = gcc",
         "  description = CXX $in",
