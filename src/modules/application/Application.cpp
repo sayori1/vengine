@@ -1,10 +1,16 @@
 #include "Application.h"
 
-#include <memory>
+#include "modules/renderer/RenderingServer.h"
 
 #include "sokol_gfx.h"
 #include "sokol_glue.h"
 #include "sokol_log.h"
+
+#include <glm/mat4x4.hpp>
+
+#include <cassert>
+#include <memory>
+#include <utility>
 
 namespace {
 
@@ -18,7 +24,10 @@ void init(void* userData) {
     sg_desc desc{};
     desc.environment = sglue_environment();
     desc.logger.func = slog_func;
+
     sg_setup(&desc);
+
+    RenderingServer::initialize();
 
     state.application = std::make_unique<Application>();
 }
@@ -30,43 +39,83 @@ void frame(void* userData) {
         static_cast<float>(sapp_frame_duration())
     );
 
-    sg_pass pass{};
-    pass.action.colors[0].load_action = SG_LOADACTION_CLEAR;
-    pass.action.colors[0].clear_value = {0.08f, 0.10f, 0.14f, 1.0f};
-    pass.swapchain = sglue_swapchain();
-
-    sg_begin_pass(&pass);
-    sg_end_pass();
-    sg_commit();
+    state.application->render();
 }
 
 void cleanup(void* userData) {
-    std::unique_ptr<State> state(static_cast<State*>(userData));
+    std::unique_ptr<State> state(
+        static_cast<State*>(userData)
+    );
 
     state->application.reset();
+
+    RenderingServer::shutdown();
+
     sg_shutdown();
 }
 
 }
 
-Application::Application() = default;
+Application* Application::instance_ = nullptr;
+std::function<std::unique_ptr<Node>()> Application::sceneFactory_;
 
-Application::~Application() {
-    root_.destroy();
+Application::Application() {
+    assert(!instance_);
+    instance_ = this;
 }
 
-Node& Application::getRoot() {
-    return root_;
+Application::~Application() {
+    if (currentScene_) {
+        currentScene_->destroy();
+        currentScene_.reset();
+    }
+
+    instance_ = nullptr;
+}
+
+Application& Application::get() {
+    assert(instance_);
+    return *instance_;
+}
+
+void Application::applySceneChange() {
+    if (!sceneFactory_) {
+        return;
+    }
+
+    auto factory = std::move(sceneFactory_);
+    sceneFactory_ = {};
+
+    if (currentScene_) {
+        currentScene_->destroy();
+        currentScene_.reset();
+    }
+
+    currentScene_ = factory();
+}
+
+Node* Application::getCurrentScene() const {
+    return currentScene_.get();
 }
 
 void Application::update(float dt) {
-    root_.update(dt);
+    applySceneChange();
+
+    if (currentScene_) {
+        currentScene_->update(dt);
+    }
+}
+
+void Application::render() {
+    RenderingServer::get().renderScene();
 }
 
 sapp_desc Application::createDescriptor() {
+    auto* state = new State;
+
     sapp_desc desc{};
 
-    desc.user_data = new State;
+    desc.user_data = state;
     desc.init_userdata_cb = init;
     desc.frame_userdata_cb = frame;
     desc.cleanup_userdata_cb = cleanup;

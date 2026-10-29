@@ -3,10 +3,15 @@
 #include "RID.h"
 #include "Vertex.h"
 
+#include <glm/mat4x4.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
+
+class Material;
+class Mesh;
 
 class RenderingServer {
 public:
@@ -29,10 +34,45 @@ public:
 
     size_t meshGetSurfaceCount(RID mesh) const;
 
-    void meshDrawSurface(RID mesh, size_t surfaceIndex) const;
+    bool meshDrawSurface(
+        RID mesh,
+        size_t surfaceIndex,
+        const std::shared_ptr<Material>& material,
+        const glm::mat4& mvp
+    );
 
-    void free(RID rid);
-    bool isValid(RID rid) const;
+    RID instanceCreate();
+    void instanceFree(RID instance);
+
+    void instanceSetMesh(
+        RID instance,
+        const std::shared_ptr<Mesh>& mesh
+    );
+
+    void instanceSetTransform(
+        RID instance,
+        const glm::mat4& transform
+    );
+
+    RID cameraCreate();
+    void cameraFree(RID camera);
+
+    void cameraSetView(
+        RID camera,
+        const glm::mat4& view
+    );
+
+    void cameraSetProjection(
+        RID camera,
+        const glm::mat4& projection
+    );
+
+    void cameraSetActive(RID camera);
+
+    void renderScene();
+
+    void free(RID mesh);
+    bool isValid(RID mesh) const;
 
 private:
     RenderingServer();

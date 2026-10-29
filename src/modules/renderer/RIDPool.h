@@ -97,6 +97,22 @@ public:
         count_ = 0;
     }
 
+    template<typename F>
+    void forEach(F&& callback) {
+        for (uint32_t i = 0; i < slots_.size(); ++i) {
+            Slot& slot = slots_[i];
+
+            if (!slot.object) {
+                continue;
+            }
+
+            callback(
+                RID{i, slot.generation},
+                *slot.object
+            );
+        }
+    }
+
 private:
     struct Slot {
         std::unique_ptr<T> object;
