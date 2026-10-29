@@ -22,6 +22,19 @@ def require_tool(name):
     return path
 
 
+def generate_shaders():
+    generated = BUILD / "generated"
+    generated.mkdir(parents=True, exist_ok=True)
+    shaders = ROOT / "src/modules/renderer/passes/geometry_pass/shaders"
+    shader_header = "#pragma once\n\nnamespace geometry_shaders {\n"
+    for name, extension in (("kVertexSource", "vert"), ("kFragmentSource", "frag")):
+        source = (shaders / f"geometry.{extension}").read_text()
+        shader_header += f'inline constexpr char {name}[] = R"glsl({source})glsl";\n'
+    shader_header += "}\n"
+    shader_path = generated / "GeometryShaderSources.h"
+    if not shader_path.exists() or shader_path.read_text() != shader_header:
+        shader_path.write_text(shader_header)
+
 def build(config):
     if sys.platform != "linux" or platform.machine() not in ("x86_64", "AMD64"):
         raise RuntimeError("Only Linux x86_64 is supported")
@@ -38,7 +51,7 @@ def build(config):
     directory.mkdir(parents=True, exist_ok=True)
     manifest = directory / "build.ninja"
     binary = directory / "vengine"
-    common = "-std=c++23 -m64 -Wall -Wextra -Wpedantic -DSOKOL_GLCORE -Isrc -isystem vendor/sokol -isystem vendor/glm"
+    common = "-std=c++20 -m64 -Wall -Wextra -Wpedantic -DSOKOL_GLCORE -Ibuild/generated -Isrc -isystem vendor/sokol -isystem vendor/glm"
     if config == "debug":
         cflags = f"{common} -O0 -g3 -DDEBUG -fsanitize=address,undefined -fno-omit-frame-pointer"
         ldflags = "-m64 -fsanitize=address,undefined"
@@ -54,6 +67,11 @@ def build(config):
         f"cflags = {ninja_escape(cflags)}",
         f"ldflags = {ninja_escape(ldflags)}",
         "libs = -lX11 -lXi -lXcursor -lGL -ldl -pthread -lm",
+        "rule shaders",
+        f"  command = {ninja_escape(shlex.quote(sys.executable))} build.py shaders",
+        "  description = EMBED geometry shaders",
+        "  restat = 1",
+        "build build/generated/GeometryShaderSources.h: shaders src/modules/renderer/passes/geometry_pass/shaders/geometry.vert src/modules/renderer/passes/geometry_pass/shaders/geometry.frag | build.py",
         "rule compile",
         "  command = $cxx $cflags -pthread -MMD -MF $out.d -MT $out -c $in -o $out",
         "  depfile = $out.d",
@@ -72,7 +90,7 @@ def build(config):
         obj.parent.mkdir(parents=True, exist_ok=True)
         output = ninja_escape(obj.relative_to(ROOT).as_posix())
         objects.append(output)
-        lines.append(f"build {output}: compile {ninja_escape(relative.as_posix())}")
+        lines.append(f"build {output}: compile {ninja_escape(relative.as_posix())} || build/generated/GeometryShaderSources.h")
 
     target = ninja_escape(binary.relative_to(ROOT).as_posix())
     manifest_path = ninja_escape(manifest.relative_to(ROOT).as_posix())
@@ -101,10 +119,14 @@ def main():
     commands.add_parser("debug")
     commands.add_parser("release")
     commands.add_parser("clean")
+    commands.add_parser("shaders")
     run = commands.add_parser("run")
     run.add_argument("config", choices=("debug", "release"))
     args = parser.parse_args()
     try:
+        if args.command == "shaders":
+            generate_shaders()
+            return 0
         if args.command == "clean":
             if BUILD.exists():
                 shutil.rmtree(BUILD)

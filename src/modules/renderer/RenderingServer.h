@@ -1,6 +1,9 @@
 #pragma once
 
 #include "RID.h"
+#include "RenderContext.h"
+#include "FrameContext.h"
+#include "RenderPipeline.h"
 #include "Vertex.h"
 
 #include <glm/mat4x4.hpp>
@@ -80,8 +83,11 @@ private:
 
     friend struct RenderingServerDeleter;
 
-    struct Impl;
-    std::unique_ptr<Impl> impl_;
+    FrameContext prepareFrame();
+
+    RenderContext render_context_;
+    RenderPipeline pipeline_;
+    uint64_t frame_index_ = 0;
 };
 
 struct RenderingServerDeleter {

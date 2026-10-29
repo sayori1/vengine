@@ -6,6 +6,7 @@
 #include "modules/renderer/Material.h"
 #include "modules/renderer/Mesh.h"
 #include "modules/renderer/Shader.h"
+#include "GeometryShaderSources.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -16,35 +17,6 @@
 
 namespace {
 
-const std::string vertexSource = R"(
-#version 330 core
-
-layout(location = 0) in vec3 a_position;
-layout(location = 1) in vec4 a_color;
-
-uniform mat4 u_mvp;
-
-out vec4 v_color;
-
-void main() {
-    gl_Position = u_mvp * vec4(a_position, 1.0);
-    v_color = a_color;
-}
-)";
-
-const std::string fragmentSource = R"(
-#version 330 core
-
-in vec4 v_color;
-
-uniform vec4 u_color;
-
-out vec4 frag_color;
-
-void main() {
-    frag_color = v_color * u_color;
-}
-)";
 
 Ref<Mesh> createCube() {
     std::vector<Vertex> vertices(8);
@@ -75,8 +47,8 @@ Ref<Mesh> createCube() {
     }
 
     auto shader = Shader::create(
-        vertexSource,
-        fragmentSource
+        geometry_shaders::kVertexSource,
+        geometry_shaders::kFragmentSource
     );
 
     auto material = Material::create(shader);
@@ -123,8 +95,5 @@ MainNode::MainNode()
 
     cube.setMesh(createCube());
     cube.setPosition({0.0f, 0.0f, 0.0f});
-    cube.getMesh()->getSurface(0).material->setParameter(
-        "albedo_color",
-        glm::vec4(0.5f, 0.3f, 0.7f, 1.0f)
-    );
+
 }
