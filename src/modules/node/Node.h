@@ -10,6 +10,7 @@
 #include <vector>
 
 class Node3D;
+class UIServer;
 
 class Node {
 public:
@@ -47,6 +48,7 @@ public:
         const std::string& getName() const;
     void setName(std::string name);
     void update(float dt);
+    void update(float dt, UIServer& uiServer);
     void destroy();
 
 protected:
@@ -56,6 +58,7 @@ protected:
     virtual const Node3D* spatialNode() const;
     virtual void invalidateSpatialTransform();
     const Node3D* spatialAncestor() const;
+    UIServer* getUIServer() const;
     void invalidateTransforms();
 
 private:
@@ -66,6 +69,7 @@ private:
     void settle(bool active);
     void updateSubtree(float dt);
     void destroySubtree();
+    void assignUIServer(UIServer* uiServer);
 
     std::string name_;
     Node* parent_ = nullptr;
@@ -77,6 +81,7 @@ private:
     bool destroyed_ = false;
     bool removal_requested_ = false;
     bool active_ = false;
+    UIServer* ui_server_ = nullptr;
     bool traversing_ = false;
     bool flush_requested_ = false;
 };

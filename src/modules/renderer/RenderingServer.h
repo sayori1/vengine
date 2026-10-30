@@ -11,7 +11,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <vector>
 #include <span>
+#include <glm/vec2.hpp>
+#include <glm/vec4.hpp>
 
 class Material;
 class Mesh;
@@ -80,6 +83,11 @@ public:
     const RenderSettings& getRenderSettings() const;
 
     void renderScene();
+    void drawRect(const glm::vec2& position, const glm::vec2& size,
+                  const glm::vec4& color, int zIndex = 0);
+    void drawGlyph(const glm::vec2& position, const glm::vec2& size,
+                   const glm::vec4& color, const glm::vec4& uv, int zIndex = 0);
+    void setGlyphAtlas(std::shared_ptr<const std::vector<uint8_t>> pixels, uint64_t version);
 
     void free(RID mesh);
     bool isValid(RID mesh) const;
@@ -95,6 +103,9 @@ private:
     RenderContext render_context_;
     RenderPipeline pipeline_;
     uint64_t frame_index_ = 0;
+    std::vector<UIRectCommand> ui_commands_;
+    std::shared_ptr<const std::vector<uint8_t>> glyph_atlas_;
+    uint64_t glyph_atlas_version_ = 0;
 };
 
 struct RenderingServerDeleter {

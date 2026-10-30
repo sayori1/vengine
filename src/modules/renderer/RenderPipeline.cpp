@@ -3,6 +3,7 @@
 #include "passes/depth_pass/DepthPass.h"
 #include "passes/light_culling_pass/LightCullingPass.h"
 #include "passes/shadow_pass/ShadowPass.h"
+#include "passes/ui_pass/UIPass.h"
 
 RenderPipeline::RenderPipeline() {
     passes_ = render_pipeline_detail::Registration<>{}
@@ -10,6 +11,7 @@ RenderPipeline::RenderPipeline() {
                   .addPass<LightCullingPass>()
                   .addPass<ShadowPass>()
                   .addPass<GeometryPass>()
+                  .addPass<UIPass>()
                   .finish();
 }
 

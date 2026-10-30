@@ -320,10 +320,29 @@ FrameContext RenderingServer::prepareFrame() {
 
 void RenderingServer::renderScene() {
     FrameContext frame = prepareFrame();
+    frame.uiCommands.swap(ui_commands_);
+    frame.glyphAtlas = glyph_atlas_;
+    frame.glyphAtlasVersion = glyph_atlas_version_;
     if (frame.viewport.width > 0 && frame.viewport.height > 0) {
         pipeline_.execute(render_context_, frame);
     }
     sg_commit();
+}
+
+void RenderingServer::drawRect(const glm::vec2& position, const glm::vec2& size,
+                               const glm::vec4& color, int zIndex) {
+    ui_commands_.push_back({position, size, color, zIndex});
+}
+
+void RenderingServer::drawGlyph(const glm::vec2& position, const glm::vec2& size,
+                                const glm::vec4& color, const glm::vec4& uv, int zIndex) {
+    ui_commands_.push_back({position, size, color, zIndex, uv, true});
+}
+
+void RenderingServer::setGlyphAtlas(std::shared_ptr<const std::vector<uint8_t>> pixels,
+                                    uint64_t version) {
+    glyph_atlas_ = std::move(pixels);
+    glyph_atlas_version_ = version;
 }
 
 void RenderingServer::free(RID rid) {

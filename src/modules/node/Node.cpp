@@ -1,4 +1,5 @@
 #include "Node.h"
+#include "modules/ui/UIServer.h"
 
 #include <cassert>
 
@@ -81,6 +82,20 @@ void Node::update(float dt) {
     traversing_ = false;
 }
 
+void Node::update(float dt, UIServer& uiServer) {
+    assignUIServer(&uiServer);
+    update(dt);
+}
+
+void Node::assignUIServer(UIServer* uiServer) {
+    ui_server_ = uiServer;
+    for (auto* collection : {&children_, &pending_children_}) {
+        for (auto& child : *collection) {
+            child->assignUIServer(uiServer);
+        }
+    }
+}
+
 void Node::destroy() {
     if (destroyed_ || destroying_) {
         return;
@@ -112,6 +127,7 @@ void Node::settle(bool active) {
         return;
     }
     for (auto& child : pending_children_) {
+        child->ui_server_ = ui_server_;
         children_.push_back(std::move(child));
     }
     pending_children_.clear();
@@ -176,6 +192,8 @@ const Node3D* Node::spatialAncestor() const {
     }
     return nullptr;
 }
+
+UIServer* Node::getUIServer() const { return ui_server_; }
 
 void Node::invalidateTransforms() {
     invalidateSpatialTransform();

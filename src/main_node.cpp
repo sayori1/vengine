@@ -7,6 +7,14 @@
 #include "modules/node/SpotLight3D.h"
 #include "modules/renderer/Mesh.h"
 #include "modules/renderer/StandardMaterial3D.h"
+#include "modules/ui/Panel.h"
+#include "modules/ui/Padding.h"
+#include "modules/ui/Row.h"
+#include "modules/ui/Column.h"
+#include "modules/ui/Expanded.h"
+#include "modules/ui/Stack.h"
+#include "modules/ui/Label.h"
+#include "modules/renderer/RenderingServer.h"
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/constants.hpp>
@@ -114,6 +122,26 @@ void aimAt(Node3D& node, const glm::vec3& target) {
 }
 
 MainNode::MainNode() : Node3D("MainNode") {
+    auto& panel = addChild<Panel>("DemoPanel");
+    panel.setPosition({24.0f, 24.0f});
+    panel.setSize({360.0f, 120.0f});
+    panel.setMinimumSize({240.0f, 80.0f});
+    panel.setBackgroundColor({0.08f, 0.18f, 0.28f, 0.82f});
+    panel.setPadding({12.0f, 12.0f,12.0f,12.0f});
+
+    auto& column = panel.addChild<Column>("DemoColumn");
+
+    auto& label = column.addChild<Label>("UnicodeLabel");
+    label.setText("· Привет 1");
+    label.setFontSize(18.0f);
+    label.setColor({1.0f, 1.0f, 1.0f, 1.0f});
+
+
+    auto& label1 = column.addChild<Label>("UnicodeLabel1");
+    label1.setText("· Привет 2");
+    label1.setFontSize(18.0f);
+    label1.setColor({1.0f, 1.0f, 1.0f, 1.0f});
+
     auto& camera = addChild<Camera3D>("Camera");
     camera.setPosition({-5.0f, 3.0f, -4.0f});
     aimAt(camera, {0.0f, 0.5f, 0.0f});

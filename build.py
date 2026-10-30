@@ -5,6 +5,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tarfile
 
 
 ROOT = Path(__file__).resolve().parent
@@ -44,9 +45,79 @@ def generate_shaders():
         source = (shaders / path).read_text()
         shader_header += f'inline constexpr char {name}[] = R"glsl({source})glsl";\n'
     shader_header += "}\n"
+    shader_header += "\nnamespace ui_shaders {\n"
+    shader_header += f'inline constexpr char kVertexSource[] = R"glsl({(shaders / "ui_pass/shaders/ui.vert").read_text()})glsl";\n'
+    shader_header += f'inline constexpr char kFragmentSource[] = R"glsl({(shaders / "ui_pass/shaders/ui.frag").read_text()})glsl";\n'
+    shader_header += "}\n"
     shader_path = generated / "GeometryShaderSources.h"
     if not shader_path.exists() or shader_path.read_text() != shader_header:
         shader_path.write_text(shader_header)
+
+
+def run(command, cwd=ROOT):
+    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(result.stdout, file=sys.stdout)
+        print(result.stderr, file=sys.stderr)
+        raise subprocess.CalledProcessError(result.returncode, command)
+
+
+def ensure_text_dependencies():
+    prefix = BUILD / "text-prefix"
+    freetype_source = ROOT / "vendor/text/freetype-2.13.2"
+    harfbuzz_source = ROOT / "vendor/text/harfbuzz-12.3.2"
+    icu_source = ROOT / "vendor/text/icu/source"
+    sources = (
+        (ROOT / "vendor/archives/freetype-2.13.2.tar.xz", freetype_source),
+        (ROOT / "vendor/archives/harfbuzz-12.3.2.tar.xz", harfbuzz_source),
+        (ROOT / "vendor/archives/icu4c-78.2-sources.tgz", ROOT / "vendor/text/icu"),
+    )
+    for archive, destination in sources:
+        if not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with tarfile.open(archive) as package:
+                package.extractall(destination.parent)
+    freetype_build = BUILD / "text-freetype"
+    run([
+        require_tool("cmake"), "-S", str(freetype_source), "-B", str(freetype_build),
+        "-DBUILD_SHARED_LIBS=OFF", "-DFT_DISABLE_ZLIB=ON", "-DFT_DISABLE_BZIP2=ON",
+        "-DFT_DISABLE_PNG=ON", "-DFT_DISABLE_HARFBUZZ=ON", "-DFT_DISABLE_BROTLI=ON",
+        "-DCMAKE_BUILD_TYPE=Release", f"-DCMAKE_INSTALL_PREFIX={prefix}",
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+    ])
+    run([require_tool("cmake"), "--build", str(freetype_build), "--parallel", "4"])
+    if not (prefix / "lib/libfreetype.a").exists():
+        run([require_tool("cmake"), "--install", str(freetype_build)])
+    harfbuzz_build = BUILD / "text-harfbuzz"
+    run([
+        require_tool("cmake"), "-S", str(harfbuzz_source), "-B", str(harfbuzz_build),
+        "-DBUILD_SHARED_LIBS=OFF", "-DHB_BUILD_SUBSET=OFF", "-DHB_HAVE_FREETYPE=ON",
+        "-DHB_HAVE_ICU=OFF", "-DCMAKE_BUILD_TYPE=Release",
+        f"-DCMAKE_PREFIX_PATH={prefix}",
+    ])
+    run([require_tool("cmake"), "--build", str(harfbuzz_build), "--parallel", "4"])
+    icu_build = BUILD / "text-icu"
+    icu_options = [
+        str(icu_source / "configure"), f"--srcdir={icu_source}", f"--prefix={prefix}",
+        "--disable-shared", "--enable-static", "--enable-tools", "--disable-tests", "--disable-samples",
+        "--disable-extras", "--disable-icuio", "--disable-layout",
+        "--with-data-packaging=static",
+    ]
+    icu_config = icu_build / "vengine-config"
+    icu_signature = " ".join(icu_options[3:])
+    icu_reconfigured = (
+        not (icu_build / "Makefile").exists() or not icu_config.exists() or
+        icu_config.read_text() != icu_signature
+    )
+    if icu_reconfigured:
+        icu_build.mkdir(parents=True, exist_ok=True)
+        run(icu_options, cwd=icu_build)
+        icu_config.write_text(icu_signature)
+    if icu_reconfigured or not all(
+        (prefix / f"lib/libicu{name}.a").exists() for name in ("uc", "i18n", "data")
+    ):
+        run(["make", "-j4", "install"], cwd=icu_build)
+
 
 def build(config):
     if sys.platform != "linux" or platform.machine() not in ("x86_64", "AMD64"):
@@ -55,6 +126,7 @@ def build(config):
     ninja = require_tool("ninja")
     if not (ROOT / "vendor/sokol/sokol_app.h").is_file():
         raise RuntimeError("Sokol is missing. Run: git submodule update --init --recursive")
+    ensure_text_dependencies()
 
     sources = sorted((ROOT / "src").rglob("*.cpp"))
     if not sources:
@@ -64,7 +136,9 @@ def build(config):
     directory.mkdir(parents=True, exist_ok=True)
     manifest = directory / "build.ninja"
     binary = directory / "vengine"
-    common = "-std=c++20 -m64 -Wall -Wextra -Wpedantic -DSOKOL_GLCORE -Ibuild/generated -Isrc -isystem vendor/sokol -isystem vendor/glm"
+    text_cflags = "-Ibuild/text-prefix/include/freetype2 -Ibuild/text-prefix/include -Ivendor/text/harfbuzz-12.3.2/src -Ibuild/text-harfbuzz"
+    text_libs = "-Wl,-Bstatic -Lbuild/text-harfbuzz -lharfbuzz -Lbuild/text-prefix/lib -lfreetype -licui18n -licuuc -licudata -Wl,-Bdynamic"
+    common = f"-std=c++20 -m64 -Wall -Wextra -Wpedantic -DSOKOL_GLCORE -Ibuild/generated -Isrc -isystem vendor/sokol -isystem vendor/glm {text_cflags}"
     if config == "debug":
         cflags = f"{common} -O0 -g3 -DDEBUG -fsanitize=address,undefined -fno-omit-frame-pointer"
         ldflags = "-m64 -fsanitize=address,undefined"
@@ -79,14 +153,15 @@ def build(config):
         f"cxx = {ninja_escape(shlex.quote(compiler))}",
         f"cflags = {ninja_escape(cflags)}",
         f"ldflags = {ninja_escape(ldflags)}",
-        "libs = -lX11 -lXi -lXcursor -lGL -ldl -pthread -lm",
+        f"libs = {text_libs} -lX11 -lXi -lXcursor -lGL -ldl -pthread -lm",
         "rule shaders",
         f"  command = {ninja_escape(shlex.quote(sys.executable))} build.py shaders",
         "  description = EMBED renderer shaders",
         "  restat = 1",
         "build build/generated/GeometryShaderSources.h: shaders " + " ".join(
             ninja_escape(f"src/modules/renderer/passes/{path}") for path in SHADERS.values()
-        ) + " | build.py",
+        ) + " src/modules/renderer/passes/ui_pass/shaders/ui.vert"
+        + " src/modules/renderer/passes/ui_pass/shaders/ui.frag | build.py",
         "rule compile",
         "  command = $cxx $cflags -pthread -MD -MF $out.d -MT $out -c $in -o $out",
         "  depfile = $out.d",

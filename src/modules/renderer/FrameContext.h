@@ -4,6 +4,17 @@
 #include <glm/glm.hpp>
 #include <cstdint>
 #include <optional>
+#include <vector>
+#include <memory>
+
+struct UIRectCommand {
+    glm::vec2 position{0.0f};
+    glm::vec2 size{0.0f};
+    glm::vec4 color{1.0f};
+    int zIndex = 0;
+    glm::vec4 uv{0.0f};
+    bool textured = false;
+};
 
 struct Depth {
     sg_view attachment{};
@@ -52,4 +63,7 @@ struct FrameContext {
     std::optional<ClusteredLights> clusteredLights;
     std::optional<Shadows> shadows;
     std::optional<SceneColor> sceneColor;
+    std::vector<UIRectCommand> uiCommands;
+    std::shared_ptr<const std::vector<uint8_t>> glyphAtlas;
+    uint64_t glyphAtlasVersion = 0;
 };

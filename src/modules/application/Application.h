@@ -1,6 +1,8 @@
 #pragma once
 
 #include "modules/node/Node.h"
+#include "modules/ui/UIServer.h"
+#include "modules/text/TextServer.h"
 #include "sokol_app.h"
 
 #include <functional>
@@ -34,6 +36,9 @@ private:
     static std::function<std::unique_ptr<Node>()> sceneFactory_;
 
     std::unique_ptr<Node> currentScene_;
+    UIServer ui_server_;
+    TextServer text_server_;
+    Ref<Font> default_font_;
 
     void applySceneChange();
 };

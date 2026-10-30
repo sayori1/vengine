@@ -1,6 +1,7 @@
 #include "Application.h"
 
 #include "modules/renderer/RenderingServer.h"
+#include "sokol_app.h"
 
 #include "sokol_gfx.h"
 #include "sokol_glue.h"
@@ -62,6 +63,11 @@ std::function<std::unique_ptr<Node>()> Application::sceneFactory_;
 Application::Application() {
     assert(!instance_);
     instance_ = this;
+    default_font_ = Font::load("vendor/text/fonts/SystemFont.ttf");
+    if (default_font_) {
+        default_font_->addFallback(Font::load("vendor/text/fonts/SystemFallback.ttf"));
+    }
+    ui_server_.setTextServer(text_server_, default_font_);
 }
 
 Application::~Application() {
@@ -102,8 +108,9 @@ void Application::update(float dt) {
     applySceneChange();
 
     if (currentScene_) {
-        currentScene_->update(dt);
+        currentScene_->update(dt, ui_server_);
     }
+    ui_server_.update({static_cast<float>(sapp_width()), static_cast<float>(sapp_height())});
 }
 
 void Application::render() {
