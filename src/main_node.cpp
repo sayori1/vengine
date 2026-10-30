@@ -139,7 +139,7 @@ MainNode::MainNode() : Node3D("MainNode") {
 
     auto& label1 = column.addChild<Label>("UnicodeLabel1");
     label1.setText("· Привет 2");
-    label1.setFontSize(18.0f);
+    label1.setFontSize(24.0f);
     label1.setColor({1.0f, 1.0f, 1.0f, 1.0f});
 
     auto& camera = addChild<Camera3D>("Camera");

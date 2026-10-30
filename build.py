@@ -5,7 +5,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tarfile
 
 
 ROOT = Path(__file__).resolve().parent
@@ -66,17 +65,7 @@ def ensure_text_dependencies():
     prefix = BUILD / "text-prefix"
     freetype_source = ROOT / "vendor/text/freetype-2.13.2"
     harfbuzz_source = ROOT / "vendor/text/harfbuzz-12.3.2"
-    icu_source = ROOT / "vendor/text/icu/source"
-    sources = (
-        (ROOT / "vendor/archives/freetype-2.13.2.tar.xz", freetype_source),
-        (ROOT / "vendor/archives/harfbuzz-12.3.2.tar.xz", harfbuzz_source),
-        (ROOT / "vendor/archives/icu4c-78.2-sources.tgz", ROOT / "vendor/text/icu"),
-    )
-    for archive, destination in sources:
-        if not destination.exists():
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            with tarfile.open(archive) as package:
-                package.extractall(destination.parent)
+    icu_source = ROOT / "vendor/text/icu/icu4c/source"
     freetype_build = BUILD / "text-freetype"
     run([
         require_tool("cmake"), "-S", str(freetype_source), "-B", str(freetype_build),
